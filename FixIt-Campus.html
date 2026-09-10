@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FixIt Campus | SDG 6 Clean Water & Sanitation Civic Reporting</title>
+  <!-- Tailwind CSS via allowlisted CDN -->
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <!-- Leaflet CSS & JS for Campus Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    .custom-campus-pin {
+      width: 28px;
+      height: 28px;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      border: 2px solid white;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .custom-campus-pin::after {
+      content: '';
+      width: 10px;
+      height: 10px;
+      background: white;
+      border-radius: 50%;
+      transform: rotate(45deg);
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col antialiased">
+
+  <!-- Top Announcement Bar -->
+  <div class="bg-sky-700 text-white text-xs py-1.5 px-4 text-center font-medium flex flex-wrap items-center justify-center gap-2">
+    <span>💧 UN SDG 6: Clean Water & Sanitation Platform</span>
+    <span class="opacity-60">•</span>
+    <span>Zero-Dependency Instant App</span>
+    <span class="opacity-60">•</span>
+    <button onclick="resetSampleData()" class="bg-sky-800 hover:bg-sky-900 border border-sky-500 px-2.5 py-0.5 rounded text-[11px] font-bold transition flex items-center gap-1 cursor-pointer">
+      <span>🔄</span>
+      <span>Reset / Reload Demo Data</span>
+    </button>
+  </div>
+
+  <!-- Main Navigation Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <!-- Brand -->
+      <div class="flex items-center gap-2 cursor-pointer" onclick="switchTab('home')">
+        <div class="w-9 h-9 rounded-full bg-sky-600 flex items-center justify-center text-white font-black shadow-md shadow-sky-600/30">
+          💧
+        </div>
+        <div>
+          <div class="font-extrabold text-lg tracking-tight leading-tight flex items-center gap-1.5">
+            FixIt Campus
+            <span class="text-[10px] uppercase font-bold tracking-wider bg-sky-100 text-sky-800 px-1.5 py-0.5 rounded">SDG 6</span>
+          </div>
+          <div class="text-[11px] text-slate-500 font-medium">Campus Civic Infrastructure</div>
+        </div>
+      </div>
+
+      <!-- Navigation Links -->
+      <nav class="hidden md:flex items-center gap-1">
+        <button onclick="switchTab('home')" class="nav-btn px-3 py-1.5 rounded-lg text-sm font-semibold transition text-sky-600 bg-sky-50" data-tab="home">Home</button>
+        <button onclick="switchTab('issues')" class="nav-btn px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-600 hover:text-sky-600 transition" data-tab="issues">All Issues</button>
+        <button onclick="switchTab('map')" class="nav-btn px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-600 hover:text-sky-600 transition" data-tab="map">Campus Map</button>
+        <button onclick="switchTab('my-reports')" class="nav-btn px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-600 hover:text-sky-600 transition" data-tab="my-reports">My Reports</button>
+        <button onclick="switchTab('admin')" class="nav-btn px-3 py-1.5 rounded-lg text-sm font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 transition" data-tab="admin">Admin Hub</button>
+      </nav>
+
+      <!-- Actions & Controls -->
+      <div class="flex items-center gap-2">
+        <button onclick="switchTab('report')" class="bg-sky-600 hover:bg-sky-700 text-white text-xs md:text-sm font-bold px-3.5 py-2 rounded-lg shadow-sm flex items-center gap-1.5 transition">
+          <span>➕</span>
+          <span>Report Issue</span>
+        </button>
+
+        <!-- Notification Bell -->
+        <div class="relative">
+          <button onclick="toggleNotifications()" class="p-2 rounded-lg hover:bg-slate-100 text-slate-600 relative">
+            <span class="text-lg">🔔</span>
+            <span id="notifBadge" class="absolute top-1 right-1 bg-rose-600 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center border-2 border-white">2</span>
+          </button>
+
+          <!-- Dropdown -->
+          <div id="notifDropdown" class="hidden absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-slate-200 z-50 overflow-hidden">
+            <div class="p-3 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <span class="font-bold text-xs text-slate-700">Notifications</span>
+              <button onclick="clearNotifications()" class="text-[11px] font-semibold text-sky-600 hover:underline">Mark all read</button>
+            </div>
+            <div id="notifList" class="max-h-64 overflow-y-auto divide-y divide-slate-100 text-xs">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Role Switcher -->
+        <div class="flex items-center bg-slate-100 p-1 rounded-lg text-xs font-bold">
+          <button id="roleStudentBtn" onclick="setRole('student')" class="px-2 py-1 rounded bg-white text-sky-700 shadow-xs">Student</button>
+          <button id="roleAdminBtn" onclick="setRole('admin')" class="px-2 py-1 rounded text-slate-500 hover:text-slate-800">Admin</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 pb-20">
+
+    <!-- TAB 1: HOME PAGE -->
+    <div id="tab-home" class="tab-content space-y-6">
+      <!-- Hero -->
+      <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-sky-600 via-sky-700 to-cyan-800 text-white p-6 md:p-10 shadow-lg">
+        <div class="relative z-10 max-w-2xl space-y-4">
+          <div class="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold">
+            <span>🚰</span> Clean Water Action for Our Campus
+          </div>
+          <h1 class="text-2xl md:text-4xl font-extrabold tracking-tight leading-tight">
+            Spot a Leak? Broken Tap? Report & Fix Campus Infrastructure.
+          </h1>
+          <p class="text-sky-100 text-sm md:text-base leading-relaxed">
+            Report water wastage, pipe bursts, and sanitation issues in under 30 seconds. Help campus maintenance act quickly and preserve thousands of liters of clean water.
+          </p>
+          <div class="flex flex-wrap gap-3 pt-2">
+            <button onclick="switchTab('report')" class="bg-white text-sky-700 hover:bg-sky-50 font-bold px-5 py-2.5 rounded-xl shadow-md text-sm transition flex items-center gap-2">
+              <span>➕</span> Report an Issue Now
+            </button>
+            <button onclick="switchTab('map')" class="bg-sky-500/30 hover:bg-sky-500/40 border border-white/30 text-white font-bold px-4 py-2.5 rounded-xl text-sm transition">
+              Explore Live Campus Map
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPI Statistics Grid -->
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-extrabold text-slate-800 text-lg">Campus Infrastructure Overview</h2>
+          <span class="text-xs text-slate-500 font-medium">Real-Time Sync</span>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+            <div class="text-xs font-bold text-slate-500 uppercase">Total Reports</div>
+            <div id="statTotal" class="text-2xl font-black text-slate-900 mt-1">6</div>
+            <div class="text-[11px] text-slate-400 mt-0.5">All logged tickets</div>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-amber-200 bg-amber-50/40 shadow-xs">
+            <div class="text-xs font-bold text-amber-700 uppercase">Reported</div>
+            <div id="statReported" class="text-2xl font-black text-amber-700 mt-1">3</div>
+            <div class="text-[11px] text-amber-600 mt-0.5">Awaiting triage</div>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-sky-200 bg-sky-50/40 shadow-xs">
+            <div class="text-xs font-bold text-sky-700 uppercase">In Progress</div>
+            <div id="statProgress" class="text-2xl font-black text-sky-700 mt-1">2</div>
+            <div class="text-[11px] text-sky-600 mt-0.5">Technicians active</div>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-emerald-200 bg-emerald-50/40 shadow-xs">
+            <div class="text-xs font-bold text-emerald-700 uppercase">Resolved</div>
+            <div id="statResolved" class="text-2xl font-black text-emerald-700 mt-1">1</div>
+            <div class="text-[11px] text-emerald-600 mt-0.5">Repaired & verified</div>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-rose-200 bg-rose-50/50 shadow-xs col-span-2 md:col-span-1">
+            <div class="text-xs font-bold text-rose-700 uppercase">Urgent Active</div>
+            <div id="statUrgent" class="text-2xl font-black text-rose-700 mt-1">2</div>
+            <div class="text-[11px] text-rose-600 mt-0.5">Critical leak alerts</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Urgent Alert Banner -->
+      <div id="urgentBanner" class="bg-rose-50 border border-rose-200 rounded-xl p-4 flex items-start gap-3">
+        <span class="text-xl">⚠️</span>
+        <div class="flex-1">
+          <div class="font-bold text-sm text-rose-800">Critical Water Waste Alerts Require Immediate Action</div>
+          <div class="text-xs text-rose-700 mt-0.5">High-priority leakages reported in 2nd Floor Washrooms and Chemistry Lab 4.</div>
+        </div>
+        <button onclick="filterUrgent()" class="text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white px-3 py-1.5 rounded-lg">View Urgent</button>
+      </div>
+
+      <!-- Recent Reports Feed -->
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-extrabold text-slate-800 text-lg">Recent Campus Reports</h2>
+          <button onclick="switchTab('issues')" class="text-xs font-bold text-sky-600 hover:underline">View All Issues →</button>
+        </div>
+        <div id="recentGrid" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: REPORT ISSUE FORM -->
+    <div id="tab-report" class="tab-content hidden max-w-2xl mx-auto">
+      <div class="bg-white p-6 md:p-8 rounded-2xl border border-slate-200 shadow-md">
+        <div class="mb-6">
+          <div class="inline-flex items-center gap-1 text-xs font-bold text-sky-700 bg-sky-50 px-2.5 py-1 rounded-full mb-2">
+            <span>📝</span> New Civic Report
+          </div>
+          <h1 class="text-xl md:text-2xl font-black text-slate-900">Report Campus Water & Sanitation Issue</h1>
+          <p class="text-xs text-slate-500 mt-1">Submit photo evidence and location so facility technicians can resolve it quickly.</p>
+        </div>
+
+        <form id="reportForm" onsubmit="handleReportSubmit(event)" class="space-y-5">
+          <!-- Category -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-2">1. Category <span class="text-rose-500">*</span></label>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2" id="categoryOptions">
+              <button type="button" onclick="selectCategory('Tap')" class="cat-pill p-2.5 rounded-xl border-2 border-sky-600 bg-sky-50 text-left transition" data-cat="Tap">
+                <div class="text-base">🚰</div>
+                <div class="text-xs font-bold mt-1">Broken Tap</div>
+              </button>
+              <button type="button" onclick="selectCategory('Leakage')" class="cat-pill p-2.5 rounded-xl border border-slate-200 hover:border-slate-300 text-left transition" data-cat="Leakage">
+                <div class="text-base">💧</div>
+                <div class="text-xs font-bold mt-1">Pipe Leak</div>
+              </button>
+              <button type="button" onclick="selectCategory('Water')" class="cat-pill p-2.5 rounded-xl border border-slate-200 hover:border-slate-300 text-left transition" data-cat="Water">
+                <div class="text-base">🧊</div>
+                <div class="text-xs font-bold mt-1">Water Supply</div>
+              </button>
+              <button type="button" onclick="selectCategory('Sanitation')" class="cat-pill p-2.5 rounded-xl border border-slate-200 hover:border-slate-300 text-left transition" data-cat="Sanitation">
+                <div class="text-base">🚽</div>
+                <div class="text-xs font-bold mt-1">Sanitation</div>
+              </button>
+              <button type="button" onclick="selectCategory('Drainage')" class="cat-pill p-2.5 rounded-xl border border-slate-200 hover:border-slate-300 text-left transition" data-cat="Drainage">
+                <div class="text-base">🌊</div>
+                <div class="text-xs font-bold mt-1">Drainage Clog</div>
+              </button>
+              <button type="button" onclick="selectCategory('Other')" class="cat-pill p-2.5 rounded-xl border border-slate-200 hover:border-slate-300 text-left transition" data-cat="Other">
+                <div class="text-base">🛠️</div>
+                <div class="text-xs font-bold mt-1">Other Issue</div>
+              </button>
+            </div>
+            <input type="hidden" id="formCategory" value="Tap" required />
+          </div>
+
+          <!-- Title -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1.5">2. Issue Title / Summary <span class="text-rose-500">*</span></label>
+            <input type="text" id="formTitle" required minlength="5" placeholder="e.g. Continuously dripping tap in 2nd floor women's washroom" class="w-full text-sm px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500" />
+          </div>
+
+          <!-- Description -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1.5">3. Description & Details <span class="text-rose-500">*</span></label>
+            <textarea id="formDescription" required minlength="10" rows="3" placeholder="Describe the water leak rate, exact spot, or hazards created (e.g. slippery puddles on marble floor)..." class="w-full text-sm px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500"></textarea>
+          </div>
+
+          <!-- Priority -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-2">4. Priority Level <span class="text-rose-500">*</span></label>
+            <div class="grid grid-cols-4 gap-2">
+              <label class="flex items-center justify-center p-2 rounded-xl border border-slate-200 cursor-pointer text-xs font-bold text-slate-700 hover:bg-slate-50">
+                <input type="radio" name="priority" value="Low" class="mr-1.5" /> Low
+              </label>
+              <label class="flex items-center justify-center p-2 rounded-xl border-2 border-sky-600 bg-sky-50 cursor-pointer text-xs font-bold text-sky-800">
+                <input type="radio" name="priority" value="Medium" checked class="mr-1.5" /> Medium
+              </label>
+              <label class="flex items-center justify-center p-2 rounded-xl border border-slate-200 cursor-pointer text-xs font-bold text-slate-700 hover:bg-slate-50">
+                <input type="radio" name="priority" value="High" class="mr-1.5" /> High
+              </label>
+              <label class="flex items-center justify-center p-2 rounded-xl border border-slate-200 cursor-pointer text-xs font-bold text-rose-700 hover:bg-rose-50">
+                <input type="radio" name="priority" value="Urgent" class="mr-1.5" /> Urgent
+              </label>
+            </div>
+          </div>
+
+          <!-- Photo Upload & Camera -->
+          <div class="border border-dashed border-slate-300 rounded-xl p-4 bg-slate-50 text-center">
+            <label class="block text-xs font-bold text-slate-700 mb-1">5. Attach Photo Evidence (Mobile Camera Support)</label>
+            <input type="file" id="formPhoto" accept="image/*" capture="environment" onchange="previewUpload(event)" class="hidden" />
+            <button type="button" onclick="document.getElementById('formPhoto').click()" class="mt-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 px-4 py-2 rounded-lg text-xs font-bold inline-flex items-center gap-1.5">
+              <span>📷</span> Take Photo or Choose Image
+            </button>
+            <div id="photoPreviewContainer" class="mt-3 hidden">
+              <img id="photoPreview" class="max-h-40 mx-auto rounded-lg border border-slate-300 object-contain shadow-xs" />
+              <button type="button" onclick="clearPhoto()" class="text-xs text-rose-600 hover:underline mt-1 font-semibold">Remove photo</button>
+            </div>
+          </div>
+
+          <!-- Location Picker -->
+          <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-bold text-slate-700 flex items-center gap-1">
+                <span>📍</span> 6. Campus Building / Location <span class="text-rose-500">*</span>
+              </label>
+              <button type="button" onclick="useGpsLocation()" class="text-[11px] font-bold text-sky-600 hover:underline flex items-center gap-1">
+                <span>🎯</span> Use My Location (GPS)
+              </button>
+            </div>
+            <select id="formLocation" class="w-full text-xs font-medium px-3 py-2 rounded-lg border border-slate-300 bg-white">
+              <option value="Washrooms">Washrooms</option>
+              <option value="Main Block">Main Block</option>
+              <option value="Library">Library</option>
+              <option value="Canteen">Canteen</option>
+              <option value="Hostel">Hostel</option>
+              <option value="Engineering Block">Engineering Block</option>
+              <option value="Sports Ground">Sports Ground</option>
+              <option value="Parking Area">Parking Area</option>
+              <option value="Other">Other Location</option>
+            </select>
+            <div id="gpsStatus" class="text-[11px] text-slate-500 flex items-center gap-1">
+              <span>Default coords:</span>
+              <span id="coordsDisplay" class="font-mono text-sky-700">12.9716, 77.5946</span>
+            </div>
+          </div>
+
+          <!-- Submit Button -->
+          <button type="submit" id="submitReportBtn" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-extrabold py-3 rounded-xl shadow-md text-sm transition flex items-center justify-center gap-2">
+            <span>🚀</span>
+            <span>Submit Campus Report</span>
+          </button>
+        </form>
+
+        <!-- Success Receipt Modal -->
+        <div id="reportSuccessModal" class="hidden text-center py-6 space-y-4">
+          <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-3xl">
+            ✅
+          </div>
+          <h2 class="text-xl font-black text-slate-900">Report Submitted Successfully!</h2>
+          <p class="text-xs text-slate-600">Your ticket has been recorded in the campus infrastructure registry.</p>
+          <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 flex justify-around items-center max-w-sm mx-auto">
+            <div>
+              <div class="text-[10px] text-slate-400 font-bold uppercase">Issue ID</div>
+              <div id="successIssueCode" class="text-lg font-extrabold text-sky-700">FIX-1042</div>
+            </div>
+            <div class="h-8 w-px bg-slate-200"></div>
+            <div>
+              <div class="text-[10px] text-slate-400 font-bold uppercase">Initial Status</div>
+              <div class="text-sm font-bold text-amber-600">Reported</div>
+            </div>
+          </div>
+          <div class="flex justify-center gap-3 pt-2">
+            <button onclick="openIssueDetails(lastSubmittedId)" class="bg-sky-600 text-white text-xs font-bold px-4 py-2 rounded-lg">View Ticket</button>
+            <button onclick="resetReportForm()" class="bg-slate-200 text-slate-700 text-xs font-bold px-4 py-2 rounded-lg">Report Another</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: ALL ISSUES DIRECTORY -->
+    <div id="tab-issues" class="tab-content hidden space-y-4">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+        <div>
+          <h1 class="text-xl md:text-2xl font-black text-slate-900">Campus Issues Directory</h1>
+          <p class="text-xs text-slate-500">Public transparency directory of all reported problems.</p>
+        </div>
+        <button onclick="switchTab('report')" class="bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1">
+          <span>➕</span> Report New
+        </button>
+      </div>
+
+      <!-- Filters & Search -->
+      <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center gap-3">
+        <input type="text" id="searchInput" oninput="applyFilters()" placeholder="Search by code, title, building..." class="flex-1 min-w-[200px] text-xs px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-sky-500" />
+        
+        <select id="filterCategory" onchange="applyFilters()" class="text-xs px-2.5 py-2 rounded-lg border border-slate-300 bg-white font-medium">
+          <option value="All">All Categories</option>
+          <option value="Tap">Tap</option>
+          <option value="Leakage">Leakage</option>
+          <option value="Water">Water</option>
+          <option value="Sanitation">Sanitation</option>
+          <option value="Drainage">Drainage</option>
+          <option value="Other">Other</option>
+        </select>
+
+        <select id="filterStatus" onchange="applyFilters()" class="text-xs px-2.5 py-2 rounded-lg border border-slate-300 bg-white font-medium">
+          <option value="All">All Statuses</option>
+          <option value="Reported">Reported</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Resolved">Resolved</option>
+        </select>
+
+        <select id="filterPriority" onchange="applyFilters()" class="text-xs px-2.5 py-2 rounded-lg border border-slate-300 bg-white font-medium">
+          <option value="All">All Priorities</option>
+          <option value="Urgent">Urgent</option>
+          <option value="High">High</option>
+          <option value="Medium">Medium</option>
+          <option value="Low">Low</option>
+        </select>
+      </div>
+
+      <!-- Issues Grid -->
+      <div id="issuesGrid" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Populated via JS -->
+      </div>
+    </div>
+
+    <!-- TAB 4: CAMPUS MAP -->
+    <div id="tab-map" class="tab-content hidden space-y-3">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-xl md:text-2xl font-black text-slate-900">Interactive Campus Map</h1>
+          <p class="text-xs text-slate-500">Geolocated view of water and infrastructure reports across campus grounds.</p>
+        </div>
+        <div class="flex items-center gap-3 text-xs font-semibold bg-white px-3 py-1.5 rounded-lg border border-slate-200">
+          <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Reported</span>
+          <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-sky-600"></span> In Progress</span>
+          <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Resolved</span>
+        </div>
+      </div>
+      <div id="campusMapContainer" class="w-full h-[520px] rounded-2xl border border-slate-200 shadow-md overflow-hidden bg-slate-100 z-10">
+        <!-- Leaflet Map rendered here -->
+      </div>
+    </div>
+
+    <!-- TAB 5: MY REPORTS -->
+    <div id="tab-my-reports" class="tab-content hidden space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-xl md:text-2xl font-black text-slate-900">My Submitted Reports</h1>
+          <p class="text-xs text-slate-500">Track issues reported by you and follow resolution progress.</p>
+        </div>
+        <button onclick="switchTab('report')" class="bg-sky-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg">New Report</button>
+      </div>
+      <div id="myReportsGrid" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Populated via JS -->
+      </div>
+    </div>
+
+    <!-- TAB 6: ADMIN HUB & OPERATIONS -->
+    <div id="tab-admin" class="tab-content hidden space-y-6">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl md:text-2xl font-black text-slate-900">Campus Facilities Command Hub</h1>
+            <span class="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2 py-0.5 rounded uppercase">Admin Portal</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-0.5">Triage incoming student tickets, commit status changes, and track performance analytics.</p>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="exportData()" class="text-xs bg-white border border-slate-300 font-bold px-3 py-1.5 rounded-lg hover:bg-slate-50">📥 Export JSON</button>
+        </div>
+      </div>
+
+      <!-- Live Analytics Section -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+        <h3 class="font-extrabold text-sm text-slate-800 flex items-center gap-1.5">
+          <span>📊</span> Live Resolution Performance Analytics
+        </h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+            <div class="text-[11px] font-bold text-slate-500">Resolution Rate</div>
+            <div id="analyticsRate" class="text-xl font-black text-emerald-600 mt-0.5">17%</div>
+            <div class="text-[10px] text-slate-400">Tickets successfully resolved</div>
+          </div>
+          <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+            <div class="text-[11px] font-bold text-slate-500">Avg Resolution Time</div>
+            <div id="analyticsTurnaround" class="text-xl font-black text-sky-700 mt-0.5">48 hrs</div>
+            <div class="text-[10px] text-slate-400">Average response to fix</div>
+          </div>
+          <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+            <div class="text-[11px] font-bold text-slate-500">Critical Leaks Triage</div>
+            <div id="analyticsUrgent" class="text-xl font-black text-rose-600 mt-0.5">2 Active</div>
+            <div class="text-[10px] text-slate-400">High priority backlog</div>
+          </div>
+          <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+            <div class="text-[11px] font-bold text-slate-500">Est. Water Preserved</div>
+            <div id="analyticsWater" class="text-xl font-black text-cyan-700 mt-0.5">4,500 L</div>
+            <div class="text-[10px] text-slate-400">Saved through prompt fixes</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Admin Issues Management Table -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+          <h3 class="font-bold text-sm text-slate-800">Operational Triage Queue</h3>
+          <span class="text-xs text-slate-500">Click any issue to change status or add resolution proof</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs text-left">
+            <thead class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+              <tr>
+                <th class="p-3">Ticket ID</th>
+                <th class="p-3">Summary</th>
+                <th class="p-3">Category</th>
+                <th class="p-3">Priority</th>
+                <th class="p-3">Status</th>
+                <th class="p-3">Location</th>
+                <th class="p-3 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="adminTableBody" class="divide-y divide-slate-100">
+              <!-- Populated via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: ISSUE DETAILS & ADMIN STATUS CONTROL -->
+    <div id="issueModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 p-6 space-y-5">
+        <!-- Header -->
+        <div class="flex items-start justify-between border-b border-slate-100 pb-3">
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span id="modalCode" class="bg-slate-900 text-white font-extrabold text-xs px-2 py-0.5 rounded">FIX-1001</span>
+              <span id="modalCategory" class="bg-sky-100 text-sky-800 font-bold text-xs px-2 py-0.5 rounded">Tap</span>
+              <span id="modalPriority" class="bg-rose-100 text-rose-800 font-bold text-xs px-2 py-0.5 rounded">Urgent</span>
+              <span id="modalStatus" class="bg-amber-100 text-amber-800 font-bold text-xs px-2 py-0.5 rounded">Reported</span>
+            </div>
+            <h2 id="modalTitle" class="text-lg font-black text-slate-900 leading-tight">Title Placeholder</h2>
+            <div class="text-[11px] text-slate-500 mt-0.5">
+              <span>Location: </span><strong id="modalLocation" class="text-slate-800">Washrooms</strong> • 
+              <span id="modalDate">Reported 2 hours ago</span>
+            </div>
+          </div>
+          <button onclick="closeIssueModal()" class="text-slate-400 hover:text-slate-700 text-2xl leading-none">&times;</button>
+        </div>
+
+        <!-- Description & Photo -->
+        <div class="space-y-3">
+          <p id="modalDesc" class="text-xs text-slate-700 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-200">
+            Description
+          </p>
+          <div id="modalPhotoContainer" class="hidden">
+            <img id="modalPhoto" class="max-h-60 w-full object-cover rounded-xl border border-slate-200" />
+          </div>
+        </div>
+
+        <!-- Resolution Evidence (if resolved) -->
+        <div id="modalResolutionContainer" class="hidden bg-emerald-50 border border-emerald-200 p-3.5 rounded-xl space-y-2">
+          <div class="font-extrabold text-xs text-emerald-800 flex items-center gap-1">
+            <span>✅</span> Resolution Proof & Maintenance Note
+          </div>
+          <p id="modalResolutionNote" class="text-xs text-emerald-900"></p>
+        </div>
+
+        <!-- Status Workflow Control (Visible to Admin or when updating) -->
+        <div class="bg-sky-50/70 border border-sky-200 rounded-xl p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <h4 class="font-bold text-xs text-sky-900">Maintenance Status Transition Workflow</h4>
+            <span class="text-[10px] bg-sky-200 text-sky-900 font-extrabold px-2 py-0.5 rounded">Deterministic State Machine</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <button onclick="transitionCurrentIssue('Reported')" id="btnStatusReported" class="py-2 rounded-lg text-xs font-bold border border-slate-300 bg-white hover:bg-slate-100">
+              Reported
+            </button>
+            <button onclick="transitionCurrentIssue('In Progress')" id="btnStatusProgress" class="py-2 rounded-lg text-xs font-bold border border-slate-300 bg-white hover:bg-slate-100">
+              In Progress
+            </button>
+            <button onclick="transitionCurrentIssue('Resolved')" id="btnStatusResolved" class="py-2 rounded-lg text-xs font-bold border border-slate-300 bg-white hover:bg-slate-100">
+              Resolved
+            </button>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-700 mb-1">Maintenance / Action Note</label>
+            <input type="text" id="adminNoteInput" placeholder="e.g. Dispatched technician with 25mm valve replacement..." class="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-1 focus:ring-sky-500" />
+          </div>
+        </div>
+
+        <!-- Visual Audit History Timeline -->
+        <div>
+          <h4 class="font-extrabold text-xs text-slate-800 mb-2">Status Audit History Timeline</h4>
+          <div id="modalTimeline" class="space-y-2 border-l-2 border-slate-200 ml-2 pl-3 text-xs">
+            <!-- Timeline items rendered here -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Mobile Bottom Navigation Bar -->
+  <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 py-2 px-4 flex justify-around items-center z-40 shadow-lg">
+    <button onclick="switchTab('home')" class="flex flex-col items-center text-[10px] font-bold text-sky-600">
+      <span class="text-base">🏠</span> Home
+    </button>
+    <button onclick="switchTab('map')" class="flex flex-col items-center text-[10px] font-semibold text-slate-500">
+      <span class="text-base">🗺️</span> Map
+    </button>
+    <button onclick="switchTab('report')" class="w-10 h-10 -mt-5 bg-sky-600 rounded-full flex items-center justify-center text-white text-xl shadow-lg shadow-sky-600/40 font-bold">
+      ➕
+    </button>
+    <button onclick="switchTab('my-reports')" class="flex flex-col items-center text-[10px] font-semibold text-slate-500">
+      <span class="text-base">📋</span> Reports
+    </button>
+    <button onclick="switchTab('admin')" class="flex flex-col items-center text-[10px] font-semibold text-amber-700">
+      <span class="text-base">🛡️</span> Admin
+    </button>
+  </nav>
+
+  <!-- APPLICATION LOGIC & STATE SCRIPT -->
+  <script>
+    // Initial Seed Database
+    const INITIAL_ISSUES = [
+      {
+        id: "issue-1",
+        code: "FIX-1001",
+        title: "Continuous high-pressure tap leak on 2nd floor washroom",
+        description: "The cold water faucet in the second washroom stall is broken at the valve seat and continuously spraying water across the floor, wasting clean water and creating a severe slip hazard.",
+        category: "Tap",
+        priority: "Urgent",
+        status: "Reported",
+        location: "Washrooms",
+        lat: 12.9715,
+        lng: 77.5945,
+        votes: 14,
+        date: "2026-09-10 11:30",
+        updates: [
+          { status: "Reported", note: "Ticket submitted by campus member", time: "11:30 AM" }
+        ],
+        adminNote: null
+      },
+      {
+        id: "issue-2",
+        code: "FIX-1002",
+        title: "Library RO drinking water dispenser drip tray overflowing",
+        description: "Drain line beneath the main drinking water unit in the library reading room is disconnected. Water is pooling under the carpet and damaging books.",
+        category: "Water",
+        priority: "High",
+        status: "In Progress",
+        location: "Library",
+        lat: 12.9723,
+        lng: 77.5951,
+        votes: 8,
+        date: "2026-09-09 14:15",
+        updates: [
+          { status: "Reported", note: "Reported by student librarian", time: "Sep 9, 2:15 PM" },
+          { status: "In Progress", note: "Campus Facilities Team dispatched plumbing technician to reconnect drainage pipe.", time: "Sep 10, 9:00 AM" }
+        ],
+        adminNote: "Plumber on site repairing drip siphon."
+      },
+      {
+        id: "issue-3",
+        code: "FIX-1003",
+        title: "Severe grease and leaf blockage in cafeteria back drain",
+        description: "The perimeter drainage trench behind the student mess is overflowing with foul-smelling stagnant runoff. Needs urgent clearance to prevent pest infestation.",
+        category: "Drainage",
+        priority: "High",
+        status: "Reported",
+        location: "Canteen",
+        lat: 12.9708,
+        lng: 77.5939,
+        votes: 19,
+        date: "2026-09-10 09:00",
+        updates: [
+          { status: "Reported", note: "Reported by food committee", time: "9:00 AM" }
+        ],
+        adminNote: null
+      },
+      {
+        id: "issue-4",
+        code: "FIX-1004",
+        title: "Hostel Block 3 1st floor overhead tank feeder valve malfunctioning",
+        description: "No water flow in morning hours for hostel showers and toilets. Students have to carry water buckets from ground floor.",
+        category: "Sanitation",
+        priority: "Urgent",
+        status: "In Progress",
+        location: "Hostel",
+        lat: 12.9731,
+        lng: 77.5962,
+        votes: 27,
+        date: "2026-09-08 18:40",
+        updates: [
+          { status: "Reported", note: "Logged by Hostel Warden", time: "Sep 8, 6:40 PM" },
+          { status: "In Progress", note: "Roof float valve replaced; currently waiting on tank pressurization test.", time: "Sep 9, 10:20 AM" }
+        ],
+        adminNote: "Replacement float valve installed."
+      },
+      {
+        id: "issue-5",
+        code: "FIX-1005",
+        title: "Subsurface irrigation line ruptured near football pitch",
+        description: "Large geyser of water noticed near east boundary line during evening practice. Grass area is completely waterlogged.",
+        category: "Leakage",
+        priority: "Medium",
+        status: "Resolved",
+        location: "Sports Ground",
+        lat: 12.9699,
+        lng: 77.5925,
+        votes: 5,
+        date: "2026-09-07 16:00",
+        updates: [
+          { status: "Reported", note: "Reported by athletics coach", time: "Sep 7, 4:00 PM" },
+          { status: "In Progress", note: "Water line valve isolated.", time: "Sep 8, 8:00 AM" },
+          { status: "Resolved", note: "Excavated section, spliced cracked 32mm PVC line, and tested pressure. Ground regraded.", time: "Sep 9, 3:00 PM" }
+        ],
+        adminNote: "Ruptured PVC line spliced and retested."
+      },
+      {
+        id: "issue-6",
+        code: "FIX-1006",
+        title: "Chemistry Lab 4 sink waste siphon leaking onto chemical storage",
+        description: "The PVC P-trap under the third sink has separated. Water drains straight onto the floor underneath and near storage cabinetry.",
+        category: "Leakage",
+        priority: "Urgent",
+        status: "Reported",
+        location: "Engineering Block",
+        lat: 12.9719,
+        lng: 77.5932,
+        votes: 11,
+        date: "2026-09-10 12:45",
+        updates: [
+          { status: "Reported", note: "Submitted by lab technician", time: "12:45 PM" }
+        ],
+        adminNote: null
+      }
+    ];
+
+    // Local state storage
+    let storedIssues = null;
+    try {
+      storedIssues = JSON.parse(localStorage.getItem('fixit_issues'));
+    } catch(e) {}
+    let issues = (Array.isArray(storedIssues) && storedIssues.length > 0) ? storedIssues : JSON.parse(JSON.stringify(INITIAL_ISSUES));
+    let userVotes = JSON.parse(localStorage.getItem('fixit_user_votes')) || {};
+    let notifications = JSON.parse(localStorage.getItem('fixit_notifs')) || [
+      { id: 1, text: "Your report FIX-1004 is now being worked on.", time: "2 hrs ago", read: false },
+      { id: 2, text: "Ticket FIX-1005 was marked as Resolved.", time: "1 day ago", read: false }
+    ];
+    let currentRole = 'student';
+    let currentModalIssueId = null;
+    let lastSubmittedId = null;
+    let mapInstance = null;
+
+    function resetSampleData() {
+      issues = JSON.parse(JSON.stringify(INITIAL_ISSUES));
+      userVotes = {};
+      notifications = [
+        { id: 1, text: "Your report FIX-1004 is now being worked on.", time: "2 hrs ago", read: false },
+        { id: 2, text: "Ticket FIX-1005 was marked as Resolved.", time: "1 day ago", read: false }
+      ];
+      saveState();
+      alert("✅ Demo data refreshed! 6 active campus water & sanitation reports are loaded.");
+    }
+
+    function saveState() {
+      localStorage.setItem('fixit_issues', JSON.stringify(issues));
+      localStorage.setItem('fixit_user_votes', JSON.stringify(userVotes));
+      localStorage.setItem('fixit_notifs', JSON.stringify(notifications));
+      updateMetrics();
+      renderRecentFeed();
+      renderIssuesList();
+      renderAdminTable();
+      renderNotifications();
+    }
+
+    // Role switcher
+    function setRole(role) {
+      currentRole = role;
+      const studentBtn = document.getElementById('roleStudentBtn');
+      const adminBtn = document.getElementById('roleAdminBtn');
+      if (role === 'admin') {
+        adminBtn.className = "px-2 py-1 rounded bg-amber-200 text-amber-900 shadow-xs";
+        studentBtn.className = "px-2 py-1 rounded text-slate-500 hover:text-slate-800";
+      } else {
+        studentBtn.className = "px-2 py-1 rounded bg-white text-sky-700 shadow-xs";
+        adminBtn.className = "px-2 py-1 rounded text-slate-500 hover:text-slate-800";
+      }
+    }
+
+    // Tab switcher
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      const activeTab = document.getElementById(`tab-${tabId}`);
+      if (activeTab) activeTab.classList.remove('hidden');
+
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        if (btn.dataset.tab === tabId) {
+          btn.classList.add('bg-sky-50', 'text-sky-600');
+          btn.classList.remove('text-slate-600');
+        } else {
+          btn.classList.remove('bg-sky-50', 'text-sky-600');
+          btn.classList.add('text-slate-600');
+        }
+      });
+
+      if (tabId === 'map') {
+        setTimeout(initMap, 150);
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Status Badge generator
+    function getStatusBadge(status) {
+      if (status === 'Resolved') {
+        return `<span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">✅ Resolved</span>`;
+      }
+      if (status === 'In Progress') {
+        return `<span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200">🛠️ In Progress</span>`;
+      }
+      return `<span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">⏱️ Reported</span>`;
+    }
+
+    // Priority Badge generator
+    function getPriorityBadge(priority) {
+      if (priority === 'Urgent') {
+        return `<span class="text-[10px] font-extrabold px-2 py-0.5 rounded bg-rose-100 text-rose-800 uppercase">Urgent</span>`;
+      }
+      if (priority === 'High') {
+        return `<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 uppercase">High</span>`;
+      }
+      if (priority === 'Low') {
+        return `<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 uppercase">Low</span>`;
+      }
+      return `<span class="text-[10px] font-bold px-2 py-0.5 rounded bg-sky-100 text-sky-800 uppercase">Medium</span>`;
+    }
+
+    // Update KPI counters & Analytics
+    function updateMetrics() {
+      const total = issues.length;
+      const reported = issues.filter(i => i.status === 'Reported').length;
+      const progress = issues.filter(i => i.status === 'In Progress').length;
+      const resolved = issues.filter(i => i.status === 'Resolved').length;
+      const urgent = issues.filter(i => i.priority === 'Urgent' && i.status !== 'Resolved').length;
+
+      document.getElementById('statTotal').innerText = total;
+      document.getElementById('statReported').innerText = reported;
+      document.getElementById('statProgress').innerText = progress;
+      document.getElementById('statResolved').innerText = resolved;
+      document.getElementById('statUrgent').innerText = urgent;
+
+      // Analytics tab
+      const rate = total > 0 ? Math.round((resolved / total) * 100) : 0;
+      document.getElementById('analyticsRate').innerText = `${rate}%`;
+      document.getElementById('analyticsUrgent').innerText = `${urgent} Active`;
+      document.getElementById('analyticsWater').innerText = `${(resolved * 4500).toLocaleString()} L`;
+    }
+
+    // Render Recent Feed
+    function renderRecentFeed() {
+      const container = document.getElementById('recentGrid');
+      container.innerHTML = issues.slice(0, 6).map(issue => `
+        <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-xs flex flex-col justify-between hover:shadow-md transition">
+          <div>
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <span class="text-[11px] font-black text-slate-800 bg-slate-100 px-2 py-0.5 rounded">${issue.code}</span>
+              ${getStatusBadge(issue.status)}
+            </div>
+            <h3 class="font-bold text-sm text-slate-900 leading-snug line-clamp-2 cursor-pointer hover:text-sky-600" onclick="openIssueDetails('${issue.id}')">
+              ${issue.title}
+            </h3>
+            <p class="text-xs text-slate-500 mt-1 line-clamp-2">${issue.description}</p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+            <span class="text-[11px] font-medium text-slate-500">📍 ${issue.location}</span>
+            <div class="flex items-center gap-2">
+              <button onclick="handleVote('${issue.id}')" class="text-xs font-bold px-2 py-1 rounded bg-slate-100 hover:bg-sky-50 text-slate-700 flex items-center gap-1 ${userVotes[issue.id] ? 'bg-sky-100 text-sky-800' : ''}">
+                <span>👍</span> <span>${issue.votes}</span>
+              </button>
+              <button onclick="openIssueDetails('${issue.id}')" class="text-xs font-bold text-sky-600 hover:underline">Details</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Render Issues Directory
+    function renderIssuesList() {
+      const search = (document.getElementById('searchInput')?.value || '').toLowerCase();
+      const cat = document.getElementById('filterCategory')?.value || 'All';
+      const st = document.getElementById('filterStatus')?.value || 'All';
+      const pr = document.getElementById('filterPriority')?.value || 'All';
+
+      const filtered = issues.filter(i => {
+        if (cat !== 'All' && i.category !== cat) return false;
+        if (st !== 'All' && i.status !== st) return false;
+        if (pr !== 'All' && i.priority !== pr) return false;
+        if (search) {
+          const match = i.code.toLowerCase().includes(search) || i.title.toLowerCase().includes(search) || i.location.toLowerCase().includes(search);
+          if (!match) return false;
+        }
+        return true;
+      });
+
+      const container = document.getElementById('issuesGrid');
+      if (filtered.length === 0) {
+        container.innerHTML = `<div class="col-span-3 text-center py-10 text-slate-400 text-xs">No issues match the selected filters.</div>`;
+        return;
+      }
+
+      container.innerHTML = filtered.map(issue => `
+        <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-xs flex flex-col justify-between hover:shadow-md transition">
+          <div>
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <div class="flex items-center gap-1.5">
+                <span class="text-[11px] font-black text-slate-800 bg-slate-100 px-2 py-0.5 rounded">${issue.code}</span>
+                ${getPriorityBadge(issue.priority)}
+              </div>
+              ${getStatusBadge(issue.status)}
+            </div>
+            <h3 class="font-bold text-sm text-slate-900 leading-snug cursor-pointer hover:text-sky-600" onclick="openIssueDetails('${issue.id}')">
+              ${issue.title}
+            </h3>
+            <p class="text-xs text-slate-500 mt-1 line-clamp-2">${issue.description}</p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+            <span class="text-[11px] font-medium text-slate-500">📍 ${issue.location}</span>
+            <div class="flex items-center gap-2">
+              <button onclick="handleVote('${issue.id}')" class="text-xs font-bold px-2 py-1 rounded bg-slate-100 hover:bg-sky-50 text-slate-700 flex items-center gap-1 ${userVotes[issue.id] ? 'bg-sky-100 text-sky-800' : ''}">
+                <span>👍</span> <span>${issue.votes}</span>
+              </button>
+              <button onclick="openIssueDetails('${issue.id}')" class="text-xs font-bold text-sky-600 hover:underline">View Ticket</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      // Render My Reports too
+      const myReportsContainer = document.getElementById('myReportsGrid');
+      if (myReportsContainer) {
+        myReportsContainer.innerHTML = issues.map(issue => `
+          <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-xs">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[11px] font-black text-sky-700">${issue.code}</span>
+              ${getStatusBadge(issue.status)}
+            </div>
+            <h3 class="font-bold text-sm text-slate-900 cursor-pointer" onclick="openIssueDetails('${issue.id}')">${issue.title}</h3>
+            <div class="mt-3 flex items-center justify-between text-xs text-slate-500">
+              <span>📍 ${issue.location}</span>
+              <button onclick="openIssueDetails('${issue.id}')" class="text-sky-600 font-bold hover:underline">Timeline</button>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    function applyFilters() {
+      renderIssuesList();
+    }
+
+    function filterUrgent() {
+      switchTab('issues');
+      document.getElementById('filterPriority').value = 'Urgent';
+      renderIssuesList();
+    }
+
+    // Render Admin Management Table
+    function renderAdminTable() {
+      const tbody = document.getElementById('adminTableBody');
+      tbody.innerHTML = issues.map(issue => `
+        <tr class="hover:bg-slate-50 transition cursor-pointer" onclick="openIssueDetails('${issue.id}')">
+          <td class="p-3 font-mono font-bold text-sky-700">${issue.code}</td>
+          <td class="p-3 font-semibold text-slate-800 max-w-xs truncate">${issue.title}</td>
+          <td class="p-3 text-slate-500">${issue.category}</td>
+          <td class="p-3">${getPriorityBadge(issue.priority)}</td>
+          <td class="p-3">${getStatusBadge(issue.status)}</td>
+          <td class="p-3 text-slate-500">${issue.location}</td>
+          <td class="p-3 text-right">
+            <button onclick="openIssueDetails('${issue.id}'); event.stopPropagation();" class="text-sky-600 font-bold hover:underline">Triage</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    // Upvote Toggle (Guarantees single vote per user)
+    function handleVote(issueId) {
+      const issue = issues.find(i => i.id === issueId);
+      if (!issue) return;
+
+      if (userVotes[issueId]) {
+        issue.votes = Math.max(0, issue.votes - 1);
+        delete userVotes[issueId];
+      } else {
+        issue.votes += 1;
+        userVotes[issueId] = true;
+      }
+      saveState();
+    }
+
+    // Category Selector
+    function selectCategory(cat) {
+      document.getElementById('formCategory').value = cat;
+      document.querySelectorAll('.cat-pill').forEach(pill => {
+        if (pill.dataset.cat === cat) {
+          pill.className = "cat-pill p-2.5 rounded-xl border-2 border-sky-600 bg-sky-50 text-left transition";
+        } else {
+          pill.className = "cat-pill p-2.5 rounded-xl border border-slate-200 hover:border-slate-300 text-left transition";
+        }
+      });
+    }
+
+    // Browser Geolocation
+    function useGpsLocation() {
+      if (!navigator.geolocation) {
+        alert("Geolocation is not supported by your browser. Please select location manually.");
+        return;
+      }
+      document.getElementById('coordsDisplay').innerText = "Acquiring GPS fix...";
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude.toFixed(4);
+          const lng = pos.coords.longitude.toFixed(4);
+          document.getElementById('coordsDisplay').innerText = `${lat}, ${lng} (Fixed)`;
+        },
+        (err) => {
+          alert("Location permission was denied. You can select the campus location manually.");
+          document.getElementById('coordsDisplay').innerText = "12.9716, 77.5946 (Default)";
+        }
+      );
+    }
+
+    // Photo Preview
+    function previewUpload(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          document.getElementById('photoPreview').src = e.target.result;
+          document.getElementById('photoPreviewContainer').classList.remove('hidden');
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function clearPhoto() {
+      document.getElementById('formPhoto').value = "";
+      document.getElementById('photoPreviewContainer').classList.add('hidden');
+    }
+
+    // Handle Report Submission
+    function handleReportSubmit(e) {
+      e.preventDefault();
+      const title = document.getElementById('formTitle').value.trim();
+      const description = document.getElementById('formDescription').value.trim();
+      const category = document.getElementById('formCategory').value;
+      const priority = document.querySelector('input[name="priority"]:checked').value;
+      const location = document.getElementById('formLocation').value;
+      const photoSrc = document.getElementById('photoPreviewContainer').classList.contains('hidden') ? null : document.getElementById('photoPreview').src;
+
+      const newCode = `FIX-${1000 + issues.length + 1}`;
+      const newId = `issue-${Date.now()}`;
+
+      const newIssue = {
+        id: newId,
+        code: newCode,
+        title,
+        description,
+        category,
+        priority,
+        status: "Reported",
+        location,
+        lat: 12.9716 + (Math.random() - 0.5) * 0.004,
+        lng: 77.5946 + (Math.random() - 0.5) * 0.004,
+        votes: 1,
+        date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        photo: photoSrc,
+        updates: [
+          { status: "Reported", note: "Issue logged by student reporter", time: "Just now" }
+        ],
+        adminNote: null
+      };
+
+      issues.unshift(newIssue);
+      lastSubmittedId = newId;
+
+      saveState();
+
+      // Show success modal
+      document.getElementById('reportForm').classList.add('hidden');
+      document.getElementById('successIssueCode').innerText = newCode;
+      document.getElementById('reportSuccessModal').classList.remove('hidden');
+    }
+
+    function resetReportForm() {
+      document.getElementById('reportForm').reset();
+      clearPhoto();
+      document.getElementById('reportForm').classList.remove('hidden');
+      document.getElementById('reportSuccessModal').classList.add('hidden');
+    }
+
+    // Open Issue Modal
+    function openIssueDetails(issueId) {
+      const issue = issues.find(i => i.id === issueId);
+      if (!issue) return;
+
+      currentModalIssueId = issueId;
+      document.getElementById('modalCode').innerText = issue.code;
+      document.getElementById('modalTitle').innerText = issue.title;
+      document.getElementById('modalCategory').innerText = issue.category;
+      document.getElementById('modalPriority').innerText = issue.priority;
+      document.getElementById('modalStatus').innerText = issue.status;
+      document.getElementById('modalLocation').innerText = issue.location;
+      document.getElementById('modalDesc').innerText = issue.description;
+
+      if (issue.photo) {
+        document.getElementById('modalPhoto').src = issue.photo;
+        document.getElementById('modalPhotoContainer').classList.remove('hidden');
+      } else {
+        document.getElementById('modalPhotoContainer').classList.add('hidden');
+      }
+
+      if (issue.status === 'Resolved' && issue.adminNote) {
+        document.getElementById('modalResolutionNote').innerText = issue.adminNote;
+        document.getElementById('modalResolutionContainer').classList.remove('hidden');
+      } else {
+        document.getElementById('modalResolutionContainer').classList.add('hidden');
+      }
+
+      document.getElementById('adminNoteInput').value = issue.adminNote || "";
+
+      // Render timeline
+      const timelineEl = document.getElementById('modalTimeline');
+      timelineEl.innerHTML = issue.updates.map(u => `
+        <div class="relative pb-2">
+          <div class="font-bold text-slate-800">${u.status} • <span class="text-slate-400 font-normal">${u.time}</span></div>
+          <div class="text-slate-600 text-[11px]">${u.note}</div>
+        </div>
+      `).join('');
+
+      document.getElementById('issueModal').classList.remove('hidden');
+    }
+
+    function closeIssueModal() {
+      document.getElementById('issueModal').classList.add('hidden');
+      currentModalIssueId = null;
+    }
+
+    // Transition Status (Deterministic State Machine)
+    function transitionCurrentIssue(newStatus) {
+      if (!currentModalIssueId) return;
+      const issue = issues.find(i => i.id === currentModalIssueId);
+      if (!issue) return;
+
+      const oldStatus = issue.status;
+      const note = document.getElementById('adminNoteInput').value.trim() || `Status updated to ${newStatus}`;
+
+      issue.status = newStatus;
+      issue.adminNote = note;
+
+      // Add to immutable timeline
+      issue.updates.push({
+        status: newStatus,
+        note,
+        time: "Just now"
+      });
+
+      // Dispatch Student In-App Notification
+      let notifMsg = `Your report ${issue.code} status changed to ${newStatus}`;
+      if (newStatus === 'In Progress') notifMsg = `Your report ${issue.code} is now being worked on.`;
+      if (newStatus === 'Resolved') notifMsg = `Your report ${issue.code} has been resolved.`;
+
+      notifications.unshift({
+        id: Date.now(),
+        text: notifMsg,
+        time: "Just now",
+        read: false
+      });
+
+      saveState();
+      openIssueDetails(currentModalIssueId); // refresh modal view
+    }
+
+    // Notification dropdown
+    function toggleNotifications() {
+      document.getElementById('notifDropdown').classList.toggle('hidden');
+    }
+
+    function clearNotifications() {
+      notifications.forEach(n => n.read = true);
+      saveState();
+    }
+
+    function renderNotifications() {
+      const unreadCount = notifications.filter(n => !n.read).length;
+      const badge = document.getElementById('notifBadge');
+      if (unreadCount > 0) {
+        badge.innerText = unreadCount;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+
+      const list = document.getElementById('notifList');
+      if (notifications.length === 0) {
+        list.innerHTML = `<div class="p-3 text-slate-400 text-center text-xs">No notifications.</div>`;
+      } else {
+        list.innerHTML = notifications.map(n => `
+          <div class="p-3 ${!n.read ? 'bg-sky-50 font-semibold' : ''}">
+            <div class="text-slate-800 text-xs">${n.text}</div>
+            <div class="text-[10px] text-slate-400 mt-0.5">${n.time}</div>
+          </div>
+        `).join('');
+      }
+    }
+
+    // Export Data JSON
+    function exportData() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(issues, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `fixit_campus_export_${Date.now()}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    // Initialize Leaflet Map
+    function initMap() {
+      const container = document.getElementById('campusMapContainer');
+      if (!container) return;
+
+      if (mapInstance) {
+        mapInstance.invalidateSize();
+        return;
+      }
+
+      mapInstance = L.map('campusMapContainer').setView([12.9716, 77.5946], 16);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(mapInstance);
+
+      // Add pins
+      issues.forEach(issue => {
+        let color = '#f59e0b';
+        if (issue.status === 'In Progress') color = '#0284c7';
+        if (issue.status === 'Resolved') color = '#10b981';
+
+        const customIcon = L.divIcon({
+          className: 'custom-pin-wrapper',
+          html: `<div class="custom-campus-pin" style="background-color: ${color};"></div>`,
+          iconSize: [28, 28],
+          iconAnchor: [14, 28]
+        });
+
+        const marker = L.marker([issue.lat, issue.lng], { icon: customIcon }).addTo(mapInstance);
+        marker.bindPopup(`
+          <div style="font-family: system-ui; max-width: 200px;">
+            <div style="font-weight: 800; color: #0284c7; font-size: 11px;">${issue.code} • ${issue.category}</div>
+            <div style="font-weight: 700; font-size: 12px; margin: 2px 0;">${issue.title}</div>
+            <div style="font-size: 11px; color: #64748b;">📍 ${issue.location}</div>
+            <div style="margin-top: 6px; font-weight: bold; font-size: 11px; color: ${color};">${issue.status}</div>
+          </div>
+        `);
+      });
+    }
+
+    // Bootstrap app
+    window.addEventListener('DOMContentLoaded', () => {
+      saveState();
+    });
+  </script>
+</body>
+</html>
